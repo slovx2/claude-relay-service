@@ -53,6 +53,10 @@ const config = {
         // 验证配置值：限制在0-1440分钟(24小时)内
         return Math.max(0, Math.min(minutes, 1440))
       })()
+    },
+    // 401/403错误处理：是否需要手动重置账户
+    authErrorHandling: {
+      requireManualReset: process.env.CLAUDE_AUTH_ERROR_REQUIRE_MANUAL_RESET !== 'false'
     }
   },
 
@@ -73,6 +77,30 @@ const config = {
   proxy: {
     timeout: parseInt(process.env.DEFAULT_PROXY_TIMEOUT) || 600000, // 10分钟
     maxRetries: parseInt(process.env.MAX_PROXY_RETRIES) || 3,
+    // 连接池与 Keep-Alive 配置（默认关闭，需要显式开启）
+    keepAlive: (() => {
+      if (process.env.PROXY_KEEP_ALIVE === undefined || process.env.PROXY_KEEP_ALIVE === '') {
+        return false
+      }
+      return process.env.PROXY_KEEP_ALIVE === 'true'
+    })(),
+    maxSockets: (() => {
+      if (process.env.PROXY_MAX_SOCKETS === undefined || process.env.PROXY_MAX_SOCKETS === '') {
+        return undefined
+      }
+      const parsed = parseInt(process.env.PROXY_MAX_SOCKETS)
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+    })(),
+    maxFreeSockets: (() => {
+      if (
+        process.env.PROXY_MAX_FREE_SOCKETS === undefined ||
+        process.env.PROXY_MAX_FREE_SOCKETS === ''
+      ) {
+        return undefined
+      }
+      const parsed = parseInt(process.env.PROXY_MAX_FREE_SOCKETS)
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
+    })(),
     // IP协议族配置：true=IPv4, false=IPv6, 默认IPv4（兼容性更好）
     useIPv4: process.env.PROXY_USE_IPV4 !== 'false' // 默认 true，只有明确设置为 'false' 才使用 IPv6
   },

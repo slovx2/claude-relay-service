@@ -1860,7 +1860,7 @@ class ClaudeAccountService {
           'Content-Type': 'application/json',
           Accept: 'application/json',
           'anthropic-beta': 'oauth-2025-04-20',
-          'User-Agent': 'claude-cli/1.0.56 (external, cli)',
+          'User-Agent': 'claude-cli/2.0.53 (external, cli)',
           'Accept-Language': 'en-US,en;q=0.9'
         },
         timeout: 15000
@@ -1879,7 +1879,7 @@ class ClaudeAccountService {
           accountId,
           fiveHour: response.data.five_hour?.utilization,
           sevenDay: response.data.seven_day?.utilization,
-          sevenDayOpus: response.data.seven_day_opus?.utilization
+          sevenDayOpus: response.data.seven_day_sonnet?.utilization
         })
 
         return response.data
@@ -1981,12 +1981,12 @@ class ClaudeAccountService {
     }
 
     // 7天Opus窗口
-    if (usageData.seven_day_opus) {
-      if (usageData.seven_day_opus.utilization !== undefined) {
-        updates.claudeSevenDayOpusUtilization = String(usageData.seven_day_opus.utilization)
+    if (usageData.seven_day_sonnet) {
+      if (usageData.seven_day_sonnet.utilization !== undefined) {
+        updates.claudeSevenDayOpusUtilization = String(usageData.seven_day_sonnet.utilization)
       }
-      if (usageData.seven_day_opus.resets_at) {
-        updates.claudeSevenDayOpusResetsAt = usageData.seven_day_opus.resets_at
+      if (usageData.seven_day_sonnet.resets_at) {
+        updates.claudeSevenDayOpusResetsAt = usageData.seven_day_sonnet.resets_at
       }
     }
 
@@ -2318,7 +2318,11 @@ class ClaudeAccountService {
       // 更新账户状态
       const updatedAccountData = { ...accountData }
       updatedAccountData.status = errorConfig.status
-      updatedAccountData.schedulable = 'false' // 设置为不可调度
+      // 根据配置决定是否停止调度
+      const requireManualReset = config.claude?.authErrorHandling?.requireManualReset !== false
+      if (requireManualReset) {
+        updatedAccountData.schedulable = 'false'
+      }
       updatedAccountData.errorMessage = errorConfig.errorMessage
       updatedAccountData[errorConfig.timestampField] = new Date().toISOString()
 
@@ -2331,8 +2335,9 @@ class ClaudeAccountService {
         logger.info(`🗑️ Deleted sticky session mapping for hash: ${sessionHash}`)
       }
 
+      const schedulingStatus = requireManualReset ? 'disabled for scheduling' : 'still schedulable (auto-recovery mode)'
       logger.warn(
-        `⚠️ Account ${accountData.name} (${accountId}) marked as ${errorConfig.logMessage} and disabled for scheduling`
+        `⚠️ Account ${accountData.name} (${accountId}) marked as ${errorConfig.logMessage}, ${schedulingStatus}`
       )
 
       // 发送Webhook通知
